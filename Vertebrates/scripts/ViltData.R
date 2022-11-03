@@ -75,5 +75,8 @@ countydat<- sf_ViltBio %>%
 #countydat<-aggregate.data.frame(sf_ViltBio[,c(antmkg,utmark)])
 
 countydat$MetabolicBiomassDensity<-countydat$TotalMetBio/countydat$TotalUtmark
-
 ggplot()+geom_sf(data=countydat[countydat$art=='elg',],aes(fill=MetabolicBiomassDensity),color=NA)+facet_wrap(vars(aar))+scale_fill_gradient(trans='log')+ggtitle("Moose - county")
+
+
+#Write county data as a shapefile
+write_sf(countydat,"Vertebrates/data/Processed","Viltdata.shp",driver="ESRI Shapefile")
