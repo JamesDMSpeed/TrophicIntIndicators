@@ -7,6 +7,11 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 
+
+
+# Import and set up -------------------------------------------------------
+
+
 vilt<-st_read("Vertebrates/data/Processed/Viltdata.shp")
 names(vilt)[4:6]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
 
@@ -49,9 +54,12 @@ carnivore_wide<-pivot_wider(carnivores_sameyrs,id_col=c(Year,YearMatch,County,Fy
 viltcarn<-full_join(viltwide,carnivore_wide,by=c("aar"="YearMatch","FylkeNr"="FylkeNr"))
 viltcarn
 
-#Calculate ratios
-viltcarn$wolf_moose<-viltcarn$MBD_Wolf/viltcarn$MBD.elg
 
+# Calculate biomass ratios ------------------------------------------------
+
+
+#Example with wolf and moose
+viltcarn$wolf_moose<-viltcarn$MBD_Wolf/viltcarn$MBD.elg
 ggplot()+geom_sf(data=viltcarn,aes(fill=wolf_moose),color=NA)+facet_wrap(vars(aar))+ggtitle("Wolf/Moose MBD ratio")+scale_fill_gradient(trans='log')
 
 #Forest vilt (red deer, roe deer, moose) and carnivores (bear, lynx, wolf)
