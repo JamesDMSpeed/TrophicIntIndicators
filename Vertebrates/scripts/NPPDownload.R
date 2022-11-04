@@ -6,6 +6,8 @@ library(MODIStsp)
 library(terra)
 library(sf)
 library(tidyverse)
+library(tidyterra)
+library(ggplot2)
 
 
 #Using MODIStsp package
@@ -40,3 +42,16 @@ MODIStsp(gui             = FALSE,
          delete_hdf      = TRUE,
          parallel        = TRUE
 )
+
+
+#Read in
+nppyrfiles<-list.files("Vertebrates/data/NPP/Net_PP_Yearly_500m_v6/Npp",full.names = T)
+
+nppstack<-rast(nppyrfiles)
+names(nppstack)<-2000:2021
+nppstack[nppstack>32000]<-NA
+plot(nppstack[[1]],axes=F,main="2000")
+
+
+ggplot()+geom_spatraster(data=nppstack,aes(fill=2000))
+ 

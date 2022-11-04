@@ -20,15 +20,6 @@ hjortevilt_metabolsk_vekt$utmark<-utmarkdat$utmar[match(hjortevilt_metabolsk_vek
 #Calculating metabolicbiomass density (kg/km2 of utmark)
 hjortevilt_metabolsk_vekt$MetabolicBiomassDensity<-hjortevilt_metabolsk_vekt$antmkg/hjortevilt_metabolsk_vekt$utmark
 
-
-# #Counties
-# norway<-gadm(country="NOR",level=1,"Vertebrates/data/norgeflyke")
-# norwaykom<-gadm(country="NOR",level=2,"Vertebrates/data/norgekom")
-# #Convert county polygon vector file to sf
-# norwayF <- sf::st_as_sf(norway)
-# 
-
-
 #2017 list of kommune
 norwaykom2017<-st_read('Vertebrates/data/Kommuner_2017')
 plot(norwaykom2017["NAVN"])
@@ -50,7 +41,7 @@ ggplot()+geom_sf(data=norwaykom2017,aes(fill=factor(FylkeNr)))
 sf_ViltBio<-full_join(norwaykom2017,hjortevilt_metabolsk_vekt,by=c("KOMMUNENUM"="knr2017"))
 
 #Simplify by selecting 
-sf_ViltBio %>% select(c(kommunenr,NAVN,FylkeNr,FylkeName,art,aar,antkg,antmkg,utmark,MetabolicBiomassDensity))
+sf_ViltBio <-sf_ViltBio %>% select(c(kommunenr,NAVN,FylkeNr,FylkeName,art,aar,antkg,antmkg,utmark,MetabolicBiomassDensity))
 
 #Plot one species and year
 plot(sf_ViltBio[sf_ViltBio$art=='elg' & sf_ViltBio$aar==2015,]["MetabolicBiomassDensity"],main="Moose 2015")
@@ -79,4 +70,6 @@ ggplot()+geom_sf(data=countydat[countydat$art=='elg',],aes(fill=MetabolicBiomass
 
 
 #Write county data as a shapefile
-write_sf(countydat,"Vertebrates/data/Processed","Viltdata.shp",driver="ESRI Shapefile")
+write_sf(countydat,"Vertebrates/data/Processed","ViltdataCounty.shp",driver="ESRI Shapefile")
+#write kom data as a shapefile
+write_sf(sf_ViltBio,"Vertebrates/data/Processed","ViltdataKommune.shp",driver="ESRI Shapefile")

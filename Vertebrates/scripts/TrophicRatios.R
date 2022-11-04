@@ -6,13 +6,14 @@ library(sf)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(terra)
+library(tidyterra)
 
+# 1 County level analysis of vertebrates-------------------------------------------------------
+#Import
+#Herbivores
 
-
-# Import and set up -------------------------------------------------------
-
-
-vilt<-st_read("Vertebrates/data/Processed/Viltdata.shp")
+vilt<-st_read("Vertebrates/data/Processed/ViltdataCounty.shp")
 names(vilt)[4:6]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
 
 #Widen up to have seperate columns for each species
@@ -55,6 +56,7 @@ viltcarn<-full_join(viltwide,carnivore_wide,by=c("aar"="YearMatch","FylkeNr"="Fy
 viltcarn
 
 
+
 # Calculate biomass ratios ------------------------------------------------
 
 
@@ -64,4 +66,47 @@ ggplot()+geom_sf(data=viltcarn,aes(fill=wolf_moose),color=NA)+facet_wrap(vars(aa
 
 #Forest vilt (red deer, roe deer, moose) and carnivores (bear, lynx, wolf)
 viltcarn$forest_carn_vilt<-(viltcarn$MBD_Wolf+viltcarn$MBD_Lynx+viltcarn$MBD_Bear)/(viltcarn$MBD.elg+viltcarn$MBD.hjort+viltcarn$MBD.roe)
-ggplot()+geom_sf(data=viltcarn,aes(fill=forest_carn_vilt),color=NA)+facet_wrap(vars(aar))+ggtitle("Forest carnivore:vilt MBD ratio")+scale_fill_gradient(trans='log')
+ggplot()+geom_sf(data=viltcarn,aes(fill=forest_carn_vilt),color=NA)+facet_wrap(vars(aar))+ggtitle("Forest carnivore:Cervids \n Metabolic biomass density ratio")+scale_fill_gradient(trans='log')
+ggsave("Vertebrates/outputs/ForestCarnCervids.png")
+
+
+
+# 2. Rasterized analyses ------------------------------------------------------
+
+#NPP
+#Read in
+nppyrfiles<-list.files("Vertebrates/data/NPP/Net_PP_Yearly_500m_v6/Npp",full.names = T)
+
+nppstack<-rast(nppyrfiles)
+names(nppstack)<-2000:2021
+nppstack[nppstack>32000]<-NA
+
+#Mask out the non-norway regions
+nppstack_m<-mask(nppstack,viltKomwide)
+
+ggplot()+geom_spatraster(data=nppstack_m,aes(fill=2000))
+
+
+#Vilt
+
+viltKom<-st_read("Vertebrates/data/Processed/ViltdataKommune.shp")
+names(viltKom)
+names(viltKom)[8:10]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
+
+#Widen up to have seperate columns for each species
+#pivot not working so need to use reshape, and then send back to a sf
+df1<-viltKom %>% select(kommnnr,art,aar,MBD,geometry   )
+viltKomWide<-tidyr::pivot_wider(data=df1,names_from = "art", values_from = "MBD")
+#wideviltKom<-reshape(as.data.frame(viltKom[,-which(names(viltKom)=="TotalMetabolicBiomass")]),v.names = "MBD",direction='wide',idvar=c("aar","FylkeNr"),timevar = "art")
+#wideviltKom
+
+#viltKomwide<-full_join(countyyr,wideviltKom)
+viltKomWide
+
+
+#Rasterize a given species and year
+elg2015<-rasterize(viltKomWide[viltKomWide$aar==2015,],nppstack_m[[1]],field="elg")
+ggplot()+geom_spatraster(data=elg2015)
+
+veg_elg2015<-nppstack_m$`2015`/(elg2015+1)
+ggplot()+geom_spatraster(data=veg_elg2015)
