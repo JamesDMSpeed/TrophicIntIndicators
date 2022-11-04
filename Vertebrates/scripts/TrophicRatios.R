@@ -8,6 +8,7 @@ library(dplyr)
 library(tidyr)
 library(terra)
 library(tidyterra)
+library(gridExtra)
 
 # 1 County level analysis of vertebrates-------------------------------------------------------
 #Import
@@ -114,4 +115,25 @@ ggplot()+geom_spatraster(data=veg_elg2015)+scale_color_gradient(na.value=NA)
 #Ratio of vegetation NPP to vilt biomass
 veg_vilt2015<-nppstack_m$`2015`/(vilt2015+1)
 ggplot()+geom_spatraster(data=veg_vilt2015)+scale_fill_viridis_c(trans='log',na.value="transparent")+theme_bw()
+plot(nppstack_m$`2015`,vilt2015)
 
+#Rasterize some carnivores
+viltcarn<-viltcarn %>% mutate(forestcarns=MBD_Bear+MBD_Wolf+MBD_Lynx)
+
+forestcarn2015_r<-rasterize(viltcarn[viltcarn$aar==2015,],nppstack_m[[1]],field="forestcarns")
+
+vilt_forcar_2015<-vilt2015/(forestcarn2015_r+1)
+ggplot()+geom_spatraster(data=vilt_forcar_2015)+scale_fill_viridis_c(breaks=c(0,2,20,200),"Metabolic biomass\nratio",trans='log',na.value=NA)+
+  theme_bw()+ggtitle("Forest cervids:carnivore 2015")
+
+#Alternative colours
+#ggplot()+geom_spatraster(data=vilt_forcar_2015)+scale_fill_continuous(breaks=c(0,2,20,200),"Metabolic biomass\nratio",trans='log',na.value=NA)+
+#  theme_bw()+ggtitle("Forest cervids:Forest carnivores - 2015")
+
+
+g1<-ggplot()+geom_spatraster(data=veg_vilt2015)+scale_fill_viridis_c(breaks=c(0.8,8,80,800,8000),"Biomass ratio",trans='log',na.value="transparent")+
+  theme_bw()+ggtitle("NPP:Forest cervids 2015")
+g2<-ggplot()+geom_spatraster(data=vilt_forcar_2015)+scale_fill_viridis_c(breaks=c(0,2,20,200),"Metabolic biomass\nratio",trans='log',na.value=NA)+
+  theme_bw()+ggtitle("Forest cervids:carnivore 2015")
+#Ugly
+grid.arrange(g1,g2,ncol=2)
