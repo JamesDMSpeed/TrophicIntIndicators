@@ -97,16 +97,21 @@ names(viltKom)[8:10]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
 #pivot not working so need to use reshape, and then send back to a sf
 df1<-viltKom %>% select(kommnnr,art,aar,MBD,geometry   )
 viltKomWide<-tidyr::pivot_wider(data=df1,names_from = "art", values_from = "MBD")
-#wideviltKom<-reshape(as.data.frame(viltKom[,-which(names(viltKom)=="TotalMetabolicBiomass")]),v.names = "MBD",direction='wide',idvar=c("aar","FylkeNr"),timevar = "art")
-#wideviltKom
-
-#viltKomwide<-full_join(countyyr,wideviltKom)
 viltKomWide
-
+#Sum up vilt species biomasses
+viltKomWide<-viltKomWide %>% mutate(Vilt= elg+hjort+roe)
 
 #Rasterize a given species and year
 elg2015<-rasterize(viltKomWide[viltKomWide$aar==2015,],nppstack_m[[1]],field="elg")
+vilt2015<-rasterize(viltKomWide[viltKomWide$aar==2015,],nppstack_m[[1]],field="Vilt")
+
 ggplot()+geom_spatraster(data=elg2015)
 
+#Ratio of vegetation NPP to moose biomass
 veg_elg2015<-nppstack_m$`2015`/(elg2015+1)
-ggplot()+geom_spatraster(data=veg_elg2015)
+ggplot()+geom_spatraster(data=veg_elg2015)+scale_color_gradient(na.value=NA)
+
+#Ratio of vegetation NPP to vilt biomass
+veg_vilt2015<-nppstack_m$`2015`/(vilt2015+1)
+ggplot()+geom_spatraster(data=veg_vilt2015)+scale_fill_viridis_c(trans='log',na.value="transparent")+theme_bw()
+
