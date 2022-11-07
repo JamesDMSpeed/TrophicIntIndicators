@@ -61,6 +61,8 @@ viltcarn
 # Calculate biomass ratios ------------------------------------------------
 
 
+#County level
+
 #Example with wolf and moose
 viltcarn$wolf_moose<-viltcarn$MBD_Wolf/viltcarn$MBD.elg
 ggplot()+geom_sf(data=viltcarn,aes(fill=wolf_moose),color=NA)+facet_wrap(vars(aar))+ggtitle("Wolf/Moose MBD ratio")+scale_fill_gradient(trans='log')
@@ -79,14 +81,8 @@ ggsave("Vertebrates/outputs/ForestCarnCervids.png")
 nppyrfiles<-list.files("Vertebrates/data/NPP/Net_PP_Yearly_500m_v6/Npp",full.names = T)
 
 nppstack<-rast(nppyrfiles)
-names(nppstack)<-2000:2021
+names(nppstack)<-paste0("NPP_",2000:2021)
 nppstack[nppstack>32000]<-NA
-
-#Mask out the non-norway regions
-nppstack_m<-mask(nppstack,viltKomwide)
-
-ggplot()+geom_spatraster(data=nppstack_m,aes(fill=2000))
-
 
 #Vilt
 
@@ -102,20 +98,27 @@ viltKomWide
 #Sum up vilt species biomasses
 viltKomWide<-viltKomWide %>% mutate(Vilt= elg+hjort+roe)
 
+
+#Mask out the non-norway regions of NPP
+nppstack_m<-mask(nppstack,viltKomWide)
+
+ggplot()+geom_spatraster(data=nppstack_m,aes(fill=NPP_2000))+scale_fill_continuous(na.value=NA)
+
+
 #Rasterize a given species and year
 elg2015<-rasterize(viltKomWide[viltKomWide$aar==2015,],nppstack_m[[1]],field="elg")
 vilt2015<-rasterize(viltKomWide[viltKomWide$aar==2015,],nppstack_m[[1]],field="Vilt")
 
-ggplot()+geom_spatraster(data=elg2015)
+ggplot()+geom_spatraster(data=elg2015)+scale_fill_continuous(na.value=NA)
 
 #Ratio of vegetation NPP to moose biomass
-veg_elg2015<-nppstack_m$`2015`/(elg2015+1)
-ggplot()+geom_spatraster(data=veg_elg2015)+scale_color_gradient(na.value=NA)
+veg_elg2015<-nppstack_m$`NPP_2015`/(elg2015+1)
+ggplot()+geom_spatraster(data=veg_elg2015)+scale_fill_continuous(na.value=NA,trans='log')
 
 #Ratio of vegetation NPP to vilt biomass
-veg_vilt2015<-nppstack_m$`2015`/(vilt2015+1)
+veg_vilt2015<-nppstack_m$`NPP_2015`/(vilt2015+1)
 ggplot()+geom_spatraster(data=veg_vilt2015)+scale_fill_viridis_c(trans='log',na.value="transparent")+theme_bw()
-plot(nppstack_m$`2015`,vilt2015)
+plot(nppstack_m$`NPP_2015`,vilt2015)
 
 #Rasterize some carnivores
 viltcarn<-viltcarn %>% mutate(forestcarns=MBD_Bear+MBD_Wolf+MBD_Lynx)
@@ -133,7 +136,50 @@ ggplot()+geom_spatraster(data=vilt_forcar_2015)+scale_fill_viridis_c(breaks=c(0,
 
 g1<-ggplot()+geom_spatraster(data=veg_vilt2015)+scale_fill_viridis_c(breaks=c(0.8,8,80,800,8000),"Biomass ratio",trans='log',na.value="transparent")+
   theme_bw()+ggtitle("NPP:Forest cervids 2015")
+g1
 g2<-ggplot()+geom_spatraster(data=vilt_forcar_2015)+scale_fill_viridis_c(breaks=c(0,2,20,200),"Metabolic biomass\nratio",trans='log',na.value=NA)+
   theme_bw()+ggtitle("Forest cervids:carnivore 2015")
+g2
 #Ugly
 grid.arrange(g1,g2,ncol=2)
+
+
+#Rasterize all species and years
+#Vilt
+
+viltannual<-pivot_wider(viltKomWide,names_from = "aar",values_from = c("roe","elg",'hjort','Vilt'))
+
+viltspp <- names(viltannual)[3:50]
+viltannual_raster <- lapply(viltspp, function(x) {
+  rasterize(viltannual, nppstack_m[[1]],
+            field = x,
+            touches = TRUE
+  )
+})
+viltannual_raster<-do.call("c",viltannual_raster)
+viltannual_raster
+
+#Plot from this object
+ggplot()+geom_spatraster(data=transmute(viltannual_raster,tt1=Vilt_2015-Vilt_1989))
+
+#Carnivores
+v1<-viltcarn
+names(v1)[9:12]<-c('bear','wolf','lynx','wolverine')
+carnannual<-pivot_wider(select(v1,aar,FylkeNr,bear,wolf,lynx,wolverine),names_from = 'aar',values_from = c('bear','wolf','lynx','wolverine'))
+
+carnspp <- names(carnannual)[3:50]
+carnannual_raster <- lapply(carnspp, function(x) {
+  rasterize(carnannual, nppstack_m[[1]],
+            field = x,
+            touches = TRUE
+  )
+})
+carnannual_raster<-do.call("c",carnannual_raster)
+carnannual_raster
+
+
+#Writing Rasters - NB large files
+writeRaster(nppstack_m,"Vertebrates/data/TrophicBiomassData/NPP.tiff")
+writeRaster(viltannual_raster,"Vertebrates/data/TrophicBiomassData/Vilt.tiff")
+writeRaster(carnannual_raster,"Vertebrates/data/TrophicBiomassData/Carnivores.tiff")
+
