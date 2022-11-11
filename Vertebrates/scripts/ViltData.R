@@ -35,7 +35,7 @@ norwaykom2017$FylkeName<-korrespond$sourceName[match(norwaykom2017$KOMMUNENUM,ko
 
 View(norwaykom2017)
 ggplot()+geom_sf(data=norwaykom2017,aes(fill=factor(FylkeNr)))
-  
+st_write(norwaykom2017,"Vertebrates/data","Norway_adm_sf",driver = "ESRI Shapefile")  
 
 #Join the biomass data to the county data
 sf_ViltBio<-full_join(norwaykom2017,hjortevilt_metabolsk_vekt,by=c("KOMMUNENUM"="knr2017"))

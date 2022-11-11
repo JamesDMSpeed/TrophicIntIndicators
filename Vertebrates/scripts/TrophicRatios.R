@@ -128,6 +128,7 @@ forestcarn2015_r<-rasterize(viltcarn[viltcarn$aar==2015,],nppstack_m[[1]],field=
 vilt_forcar_2015<-vilt2015/(forestcarn2015_r+1)
 ggplot()+geom_spatraster(data=vilt_forcar_2015)+scale_fill_viridis_c(breaks=c(0,2,20,200),"Metabolic biomass\nratio",trans='log',na.value=NA)+
   theme_bw()+ggtitle("Forest cervids:carnivore 2015")
+ggsave("Vertebrates/outputs/ForestCervidsCarnivores.png")
 
 #Alternative colours
 #ggplot()+geom_spatraster(data=vilt_forcar_2015)+scale_fill_continuous(breaks=c(0,2,20,200),"Metabolic biomass\nratio",trans='log',na.value=NA)+
