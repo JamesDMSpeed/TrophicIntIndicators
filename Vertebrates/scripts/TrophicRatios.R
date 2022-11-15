@@ -184,3 +184,10 @@ writeRaster(nppstack_m,"Vertebrates/data/TrophicBiomassData/NPP.tiff")
 writeRaster(viltannual_raster,"Vertebrates/data/TrophicBiomassData/Vilt.tiff")
 writeRaster(carnannual_raster,"Vertebrates/data/TrophicBiomassData/Carnivores.tiff")
 
+
+
+#Habitat specific
+
+#AR50
+
+ar50<-st_read("Vertebrates/data/AR data/0000_25833_ar50_gdb/0000_25833_ar50_gdb.gdb","a00000009.gdbtable")
