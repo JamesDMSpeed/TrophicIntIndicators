@@ -84,6 +84,10 @@ nppstack<-rast(nppyrfiles)
 names(nppstack)<-paste0("NPP_",2000:2021)
 nppstack[nppstack>32000]<-NA
 
+
+#Convert NPP to kg/km2 (originally kg/m2)
+nppstack<-nppstack*(1000*1000)
+
 #Vilt
 
 viltKom<-st_read("Vertebrates/data/Processed/ViltdataKommune.shp")
@@ -186,8 +190,5 @@ writeRaster(carnannual_raster,"Vertebrates/data/TrophicBiomassData/Carnivores.ti
 
 
 
-#Habitat specific
 
-#AR50
 
-ar50<-st_read("Vertebrates/data/AR data/0000_25833_ar50_gdb/0000_25833_ar50_gdb.gdb","a00000009.gdbtable")

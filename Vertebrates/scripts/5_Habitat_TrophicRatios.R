@@ -14,18 +14,21 @@ library(gridExtra)
 
 
 
-#AR5
-#artype5<-rast("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\FKB\\AR5_FKB\\ArealType25_ETRS_1989_UTM_Zone_33N.tif")
-#artype5[artype5>=99]<-NA
-#ggplot()+geom_spatraster(data=artype5,na.value=125)+scale_fill_binned()#breaks=c(10,13,23,29,31,51,61,71))
+#In this script we make some indicators for specific habitat types
+#We do not yet have a suitable habitat map across Norway, so as an interrim solution, we use AR50
 
-st_layers("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\0000_25833_ar50_gdb.gdb")
-ar50shp<-st_read("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\0000_25833_ar50_gdb.gdb","org_ar_ar50_flate",method="ONLY_CCW")
+#Import AR50 data
+#AR50 Shapefile
+
+#ar50shp<-st_read("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\0000_25833_ar50_gdb.gdb","org_ar_ar50_flate",method="ONLY_CCW")
+ar50shp<-st_read("Vertebrates/data/AR50/0000_25833_ar50_gdb.gdb","org_ar_ar50_flate")
 ar50shp
+#ggplot()+geom_sf(data=ar50shp,aes(fill=artype))
 
-#AR50
-artype50<-rast("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\AR50_artype_25_ETRS_1989_UTM_Zone_33N.tif")
-#artype50[artype50>=99]<-NA
+
+#AR50 type raster
+#artype50<-rast("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\AR50_artype_25_ETRS_1989_UTM_Zone_33N.tif")
+artype50<-rast("Vertebrates/AR50/AR50_artype_25_ETRS_1989_UTM_Zone_33N.tif")
 ggplot()+geom_spatraster(data=artype50)+scale_fill_viridis_c(na.value = NA)
 
 #Reclassify
@@ -38,18 +41,75 @@ arcols<-c("black","orange","darkgreen","wheat","lightblue","white","blue","blue"
 ggplot()+geom_spatraster(data=artype50_F)+scale_fill_manual(values=arcols,na.value = NA)
 
 
-#Read NPP
+#Norway County data for outlines
+norcounty<-st_read("Vertebrates/data/Processed/","ViltdataCounty")
+
+#Here we read in the rasters of the different trophic biomass levels
 npp<-rast("Vertebrates/data/TrophicBiomassData/NPP.tiff")
 vilt<-rast("Vertebrates/data/TrophicBiomassData/Vilt.tiff")
-carnivores<-rast("Vertebrates/data/TrophicBiomassData/Vilt.tiff")
+carnivores<-rast("Vertebrates/data/TrophicBiomassData/Carnivores.tiff")
+
+#Habitat specific polygons
+#Forest
+forest_ar50<-ar50shp[ar50shp$artype==50,]
+#Innmarkbeite
+innmarkbeite_ar50<-ar50shp[ar50shp$artype==23,]
+
+
+##Example habitat specific index for forest
+
+#Mask the trophic biomass layers to the habitat
+forest_npp<-mask(npp,forest_ar50,inverse=T)
+forest_vilt<-mask(vilt,forest_ar50,inverse=T)
+forest_carnivore<-mask(carnivores,forest_ar50,inverse=T)
 
 
 
-npp_forest<-npp[ar50shp==50]
+#Forest
 
 
-#Example habitat specific index
-vilt_forcar_2015_forests<-mask(vilt_forcar_2015,crop(artype50,vilt_forcar_2015),maskvalues=30,inverse=T)
+#1907. 
+#Herbivores: Roe deer, red deer, moose
+#Carnivores: Wolf, Bear, Lynx
+forest1907_C_H<-(forest_carnivore$lynx_1907+forest_carnivore$bear_1907+forest_carnivore$wolf_1907)/(forest_vilt$roe_1907+forest_vilt$hjort_1907+forest_vilt$elg_1907)
+forest2015_V_H<-(forest_npp$NPP_2015+1)/(forest_vilt$roe_2015+forest_vilt$hjort_2015+forest_vilt$elg_2015+1)
+forest2015_H_V<-(forest_vilt$roe_2015+forest_vilt$hjort_2015+forest_vilt$elg_2015+1)/((forest_npp$NPP_2015/1000000000)+1)
 
 
-ggplot()+geom_sf(data=ar50shp,aes(fill=artype))
+ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
+  geom_spatraster(data=forest1907_C_H)+scale_fill_gradient(na.value=NA)
+
+ggplot()+geom_spatraster(data=forest2015_V_H)+scale_fill_gradient(na.value=NA,breaks=c(0,10^7.5,10^8,10^8.5,10^9,10^10))
+ggplot()+geom_spatraster(data=forest2015_H_V)+scale_fill_gradient(na.value=NA,breaks=c(0,0.001,0.1,0.2,0.5,1,10,100),trans='log')
+
+
+#Function to make indicators on basis of lists of species
+carnivore_herbivore_biomass_function<-function(carnivorerast,herbivorerast,year,carnivore_species,herbivore_species){
+  carnsppyr<-paste(carnivore_species,year,sep="_")
+  herbsppyr<-paste(herbivore_species,year,sep="_")
+  print(carnsppyr)
+  print(herbsppyr)
+  carnsum<-sum(carnivorerast[[names(carnivorerast) %in% carnsppyr]])
+  herbsum<-sum(herbivorerast[[names(herbivorerast) %in% herbsppyr]])
+  #plot(carnsum) 
+  carnsum
+  herbsum
+  ratio=(herbsum+1)/(carnsum+1)
+  return(ratio)
+  }
+
+HC_forest_2015<-carnivore_herbivore_biomass_function(carnivorerast=forest_carnivore,herbivorerast=forest_vilt,
+                                     year=2015,
+                                     carnivore_species=c('lynx','wolf','bear'),
+                                     herbivore_species=c('elg','roe','hjort'))
+
+HC_forest_1917<-carnivore_herbivore_biomass_function(carnivorerast=forest_carnivore,herbivorerast=forest_vilt,
+                                                     year=1917,
+                                                     carnivore_species=c('lynx','wolf','bear'),
+                                                     herbivore_species=c('elg','roe','hjort'))
+
+HC_forest<-c(HC_forest_1917,HC_forest_2015)
+names(HC_forest)<-c('1907','2015')
+ggplot()+geom_sf(data=norcounty,fill='white',lwd=0.1)+
+  geom_spatraster(data=HC_forest)+facet_wrap(~lyr)+
+  scale_gradient_fill(na.value=NA)
