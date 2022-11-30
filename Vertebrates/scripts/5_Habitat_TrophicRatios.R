@@ -42,7 +42,20 @@ ggplot()+geom_spatraster(data=artype50_F)+scale_fill_manual(values=arcols,na.val
 
 
 #Norway County data for outlines
-norcounty<-st_read("Vertebrates/data/Processed/","ViltdataCounty")
+norcounty_shp<-st_read("Vertebrates/data/Processed/","ViltdataCounty")
+#Simplify by county nr
+norcounty<-norcounty_shp %>% 
+  group_by(FylkeNr) %>%
+  summarise(geometry = st_union(geometry)) 
+
+norcounty$CountyName<-norcounty$FylkeNr
+norcounty$CountyName<-c("Østfold","Akershus","Oslo","Hedmark","Oppland","Buskerud","Vestfold","Telemark","Aust-Agder","Vest-Agder","Rogaland","Hordaland","Sogn og Fjordane",
+                        "Møre og Romsdal","Sør-Trøndelag","Nord-Trøndelag","Nordland","Troms","Finnmark")
+
+#Make spatVect 
+norcounty_vect<-vect(norcounty)
+
+ggplot()+geom_sf(data=norcounty)
 
 #Here we read in the rasters of the different trophic biomass levels
 npp<-rast("Vertebrates/data/TrophicBiomassData/NPP.tiff")
@@ -97,28 +110,41 @@ vegetation_herbivore_biomass_function_allyears<-function(herbivorerast,npprast,h
 
 
 #Habitat specific polygons
+
 #Forest
-forest_ar50<-ar50shp[ar50shp$artype==50,]
-#Innmarkbeite
-innmarkbeite_ar50<-ar50shp[ar50shp$artype==23,]
-
-
-
-
-
-
-##Example habitat specific index for forest
+forest_ar50<-ar50shp[ar50shp$artype==30,]
 
 #Mask the trophic biomass layers to the habitat
 npp1<-mask(npp,norcounty)#First mask out non-norway cells
-forest_npp<-mask(npp1,forest_ar50,inverse=T)#Then mask all non-forest cells
-ggplot()+geom_spatraster(data=forest_npp$NPP_2000)
-forest_vilt<-mask(vilt,forest_ar50,inverse=T)
-forest_carnivore<-mask(carnivores,forest_ar50,inverse=T)
+
+forest_npp<-mask(npp1,forest_ar50)#Then mask all non-forest cells
+ggplot()+geom_spatraster(data=forest_npp$NPP_2000)+ggtitle("Forest")
+forest_vilt<-mask(vilt,forest_ar50)
+forest_carnivore<-mask(carnivores,forest_ar50)
 
 plot(2000:2021,global(forest_npp,fun=mean,na.rm=T)$mean,type='b',main="NPP in forest")
 
-# 
+#Open areas (both alpine and lowland in AR50)
+openarea_ar50<-ar50shp[ar50shp$artype==50,]
+
+openhab_npp<-mask(npp1,openarea_ar50)
+ggplot()+geom_spatraster(data=openhab_npp$NPP_2000)+ggtitle("Open")
+openhab_vilt<-mask(vilt,openarea_ar50)
+openhab_carnivore<-mask(carnivores,openarea_ar50)
+
+#Innmarkbeite
+innmark_ar50<-ar50shp[ar50shp$artype==20,]
+innmark_npp<-mask(npp1,innmark_ar50)
+ggplot()+geom_spatraster(data=innmark_npp$NPP_2000)+ggtitle("Agri")
+innmark_vilt<-mask(vilt,innmark_ar50)
+innmark_carnivore<-mask(carnivores,innmark_ar50)
+
+
+# Old stuff - delete ------------------------------------------------------
+
+
+#
+
 # #Forest
 # #1907. 
 # #Herbivores: Roe deer, red deer, moose
@@ -187,6 +213,12 @@ plot(2000:2021,global(forest_npp,fun=mean,na.rm=T)$mean,type='b',main="NPP in fo
 # 
 # 
 
+
+
+
+# Producing indicators - forest ----------------------------------------------------
+
+
 #Forest herbivores and vegetation
 forest_herbivores_veg<-vegetation_herbivore_biomass_function_allyears(herbivorerast=forest_vilt,
                                                                     npprast=forest_npp,
@@ -200,8 +232,17 @@ ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
                      # breaks=as.numeric(apply(global(forest_herbivores_veg,quantile,na.rm=T),2,max)),
                       limits=c(0,max(global(forest_herbivores_veg,quantile,probs=0.95,na.rm=T))))
 
-
+#Simple plot
 plot(c(1999,2009,2015),global(forest_herbivores_veg,mean,na.rm=T)$mean,type='b')
+
+#County level data
+forest_herb_veg_county<-extract(forest_herbivores_veg,norcounty_vect,mean,na.rm=T)
+forest_herb_veg_county$ID<-norcounty_vect$FylkeNr
+forest_herb_veg_county$CountyName<-norcounty_vect$CountyName
+forest_herb_veg_countyDF<-gather(forest_herb_veg_county,key=Year,Y_1999,Y_2009,Y_2015,value=Ratio,-CountyName)
+forest_herb_veg_countyDF$YearN<-as.numeric(substr(forest_herb_veg_countyDF$Year,3,7))
+ggplot(data=forest_herb_veg_countyDF,aes(x=YearN,y=Ratio,group=as.factor(ID),color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=forest_herb_veg_countyDF$CountyName)+
+  ggtitle("Forest Ratio of NPP:Herbivore biomass")
 
 
 #Herbivores and carnivores
@@ -210,9 +251,62 @@ forest_carnivores_herbivores<-carnivore_herbivore_biomass_function_allyrs(carniv
                                                 carnivore_species = c('wolf','lynx','bear'),
                                                 herbivore_species = c('elg','roe','hjort'))
 forest_carnivores_herbivores
-#ggplot()+geom_spatraster(data=forest_carnivores_herbivores)+facet_wrap(~lyr)
+
+ggplot()+geom_spatraster(data=forest_carnivores_herbivores)+facet_wrap(~lyr)+scale_fill_gradient(na.value=NA)+
+  ggtitle("Forest Trophic biomass ratio Herbivores:Carnivores")+theme_bw()
 
 yearlymeans<-global(forest_carnivores_herbivores,fun="mean",na.rm=T)
 yearlyquantiles<-global(forest_carnivores_herbivores,fun=quantile,na.rm=T)
 plot(allyears_vect,yearlymedian$mean,type='b')
 lines(allyears_vect,yearlyquantiles$X50.,type="b",col=2)
+
+
+forest_carn_herb_county<-extract(forest_carnivores_herbivores,norcounty_vect,mean,na.rm=T)
+forest_carn_herb_county$ID<-norcounty_vect$FylkeNr#Replace IDs with Fylke Nrs
+forest_carn_herb_county$CountyName<-norcounty_vect$CountyName#Replace IDs with Fylke Nrs
+forest_carn_herb_countyDF<-gather(forest_carn_herb_county,key="Year",value="Ratio",-ID,-CountyName)
+forest_carn_herb_countyDF$YearN<-as.numeric(substr(forest_carn_herb_countyDF$Year,3,7))
+ggplot(data=forest_carn_herb_countyDF,aes(x=YearN,y=Ratio,color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=forest_carn_herb_countyDF$CountyName)+
+  ggtitle("Forest Ratio of Herbivore:Carnivore biomass")
+
+
+
+# #Indicators - open habitat (alpine and lowland) -------------------------
+
+
+
+#Open herbivores and vegetation
+open_herbivores_veg<-vegetation_herbivore_biomass_function_allyears(herbivorerast=openhab_vilt,
+                                                                      npprast=openhab_npp,
+                                                                      herbivore_species=c("hjort","roe"))
+
+ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
+  geom_spatraster(data=open_herbivores_veg)+facet_wrap(~lyr)+scale_fill_gradient(na.value = NA)+
+  ggtitle("Open habitat biomass ratio NPP/Herbivores")
+
+
+open_herb_veg_county<-extract(open_herbivores_veg,norcounty_vect,mean,na.rm=T)
+open_herb_veg_county$ID<-norcounty_vect$FylkeNr
+open_herb_veg_county$CountyName<-norcounty_vect$CountyName
+open_herb_veg_countyDF<-gather(open_herb_veg_county,key=Year,Y_1999,Y_2009,Y_2015,value=Ratio,-CountyName)
+open_herb_veg_countyDF$YearN<-as.numeric(substr(open_herb_veg_countyDF$Year,3,7))
+ggplot(data=open_herb_veg_countyDF,aes(x=YearN,y=Ratio,group=as.factor(ID),color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=open_herb_veg_countyDF$CountyName)+
+  ggtitle("open Ratio of NPP:Herbivore biomass")
+
+
+open_carnivores_herbivores<-carnivore_herbivore_biomass_function_allyrs(carnivorerast = forest_carnivore,
+                                                                       herbivorerast = forest_vilt,
+                                                                       carnivore_species = c('wolf','lynx'),
+                                                                       herbivore_species = c('roe','hjort'))
+
+ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
+  geom_spatraster(data=open_carnivores_herbivores)+facet_wrap(~lyr)+scale_fill_gradient(na.value=NA)+
+  ggtitle("Open habitat trophic biomass ratio Herbivores/Carnivores")
+
+open_carn_herb_county<-extract(open_carnivores_herbivores,norcounty_vect,mean,na.rm=T)
+open_carn_herb_county$ID<-norcounty_vect$FylkeNr#Replace IDs with Fylke Nrs
+open_carn_herb_county$CountyName<-norcounty_vect$CountyName#Replace IDs with Fylke Nrs
+open_carn_herb_countyDF<-gather(open_carn_herb_county,key="Year",value="Ratio",-ID,-CountyName)
+open_carn_herb_countyDF$YearN<-as.numeric(substr(open_carn_herb_countyDF$Year,3,7))
+ggplot(data=open_carn_herb_countyDF,aes(x=YearN,y=Ratio,color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=open_carn_herb_countyDF$CountyName)+
+  ggtitle("Open habitats - Ratio of Herbivore:Carnivore biomass")
