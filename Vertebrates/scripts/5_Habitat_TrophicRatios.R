@@ -1,7 +1,5 @@
 #Habitat specific trophic ratios
 
-
-
 rm(list=ls())
 
 library(sf)
