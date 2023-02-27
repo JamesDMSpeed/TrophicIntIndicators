@@ -35,6 +35,8 @@ viltwide
 livestockwide<-full_join(countyyr,widelivestock)
 livestockwide
 
+
+
 #Carnivores
 carnivores<-read.csv("Vertebrates/data/carnivore_data.csv",header=T,sep=";",dec='.')
 
@@ -117,7 +119,10 @@ livestockKomWide
 #Sum up livestock species biomasses
 livestockKomWide<-livestockKomWide %>% mutate(Livestock= sau+geit+hest+storf)
 
-
+#Total biomass
+livestockKomWide$TotalHerbivoreBiomass<-livestockKomWide$Livestock+viltKomWide$Vilt
+ggplot()+geom_sf(data=livestockKomWide,aes(fill=TotalHerbivoreBiomass),color=NA)+
+  facet_wrap(vars(AAR))+ggtitle("Herbivore MBD")+scale_fill_gradient(trans='log')
 
 #Mask out the non-norway regions of NPP
 nppstack_m<-mask(nppstack,viltKomWide)
@@ -140,6 +145,10 @@ ggplot()+geom_spatraster(data=veg_elg2015)+scale_fill_continuous(na.value=NA,tra
 veg_vilt2015<-nppstack_m$`NPP_2015`/(vilt2015+1)
 ggplot()+geom_spatraster(data=veg_vilt2015)+scale_fill_viridis_c(trans='log',na.value="transparent")+theme_bw()
 plot(nppstack_m$`NPP_2015`,vilt2015)
+
+
+#Ratio of NPP to herbivore biomass
+
 
 #Rasterize some carnivores
 viltcarn<-viltcarn %>% mutate(forestcarns=MBD_Bear+MBD_Wolf+MBD_Lynx)
