@@ -16,18 +16,24 @@ library(gridExtra)
 
 vilt<-st_read("Vertebrates/data/Processed/ViltdataCounty.shp")
 names(vilt)[4:6]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
+livestock<-st_read("Vertebrates/data/Processed/LivestockdataCounty.shp")
+names(livestock)[4:6]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
+
 
 #Widen up to have seperate columns for each species
 #pivot not working so need to use reshape, and then send back to a sf
 #tidyr::pivot_wider(data=vilt,names_from = art, values_from = MetabolicBiomassDensity)
 widevilt<-reshape(as.data.frame(vilt[,-which(names(vilt)=="TotalMetabolicBiomass")]),v.names = "MBD",direction='wide',idvar=c("aar","FylkeNr"),timevar = "art")
 widevilt
+widelivestock<-reshape(as.data.frame(livestock[,-which(names(livestock)=="TotalMetabolicBiomass")]),v.names = "MBD",direction='wide',idvar=c("AAR","FylkeNr"),timevar = "ART")
+widelivestock
 
 countyyr<-select(vilt[vilt$art=='elg',], FylkeNr,aar,TotalUtmarkArea)
 
 viltwide<-full_join(countyyr,widevilt)
 viltwide
-
+livestockwide<-full_join(countyyr,widelivestock)
+livestockwide
 
 #Carnivores
 carnivores<-read.csv("Vertebrates/data/carnivore_data.csv",header=T,sep=";",dec='.')
@@ -56,9 +62,10 @@ carnivore_wide<-pivot_wider(carnivores_sameyrs,id_col=c(Year,YearMatch,County,Fy
 viltcarn<-full_join(viltwide,carnivore_wide,by=c("aar"="YearMatch","FylkeNr"="FylkeNr"))
 viltcarn
 
+viltlivestockcarn<-st_join(viltcarn,livestockwide,by=c("aar"=="AAR","FylkeNr"="FylkeNr"))
+viltlivestockcarn
 
-
-# Calculate biomass ratios ------------------------------------------------
+  # Calculate biomass ratios ------------------------------------------------
 
 
 #County level
@@ -98,6 +105,19 @@ viltKomWide
 #Sum up vilt species biomasses
 viltKomWide<-viltKomWide %>% mutate(Vilt= elg+hjort+roe)
 
+#Livestock
+livestockKom<-st_read("Vertebrates/data/Processed/LivestockdataKommune.shp")
+names(livestockKom)
+livestockKom$MBD<-livestockKom$TOTBAR/livestockKom$utmar
+#Widen up to have seperate columns for each species
+#pivot not working so need to use reshape, and then send back to a sf
+dfL1<-livestockKom %>% select(kommunenr,ART,AAR,MBD,geometry   )
+livestockKomWide<-tidyr::pivot_wider(data=dfL1,names_from = "ART", values_from = "MBD")
+livestockKomWide
+#Sum up livestock species biomasses
+livestockKomWide<-livestockKomWide %>% mutate(Livestock= sau+geit+hest+storf)
+
+
 
 #Mask out the non-norway regions of NPP
 nppstack_m<-mask(nppstack,viltKomWide)
@@ -108,8 +128,9 @@ ggplot()+geom_spatraster(data=nppstack_m,aes(fill=NPP_2000))+scale_fill_continuo
 #Rasterize a given species and year
 elg2015<-rasterize(viltKomWide[viltKomWide$aar==2015,],nppstack_m[[1]],field="elg")
 vilt2015<-rasterize(viltKomWide[viltKomWide$aar==2015,],nppstack_m[[1]],field="Vilt")
-
+livestock2015<-rasterize(livestockKomWide[livestockKomWide$AAR==2015,],nppstack_m[[1]],field='Livestock')
 ggplot()+geom_spatraster(data=elg2015)+scale_fill_continuous(na.value=NA)
+ggplot()+geom_spatraster(data=livestock2015)+scale_fill_continuous(na.value=NA,trans='log')
 
 #Ratio of vegetation NPP to moose biomass
 veg_elg2015<-nppstack_m$`NPP_2015`/(elg2015+1)
