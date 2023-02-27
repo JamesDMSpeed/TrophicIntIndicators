@@ -26,6 +26,7 @@ sau<- read_excel("Vertebrates/data/Livestock/sau 1907-2015.xlsx")
 geit<- read_excel("Vertebrates/data/Livestock/geit 1907-2015.xlsx")
 storfe<- read_excel("Vertebrates/data/Livestock/storfe 1907-2015.xlsx")
 hest<- read_excel("Vertebrates/data/Livestock/hest 1907-2015.xlsx")
+tamrein<-read_excel("Vertebrates/data/Livestock/tamrein.xlsx")
 
 #Simplify
 sau1<-sau %>% select(c(knr2017,AAR,ART,utmar,TOTBEITE,TOTBAR,TOTBARDAG))
@@ -33,10 +34,14 @@ geit1<-geit %>% select(c(knr2017,AAR,ART,utmar,TOTBEITE,TOTBAR,TOTBARDAG))
 storfe1<- storfe %>% select(c(knr2017,AAR,ART,utmar,METBEITEOFF,TOTBAR,TOTBARDAG)) #Check METBEITEOFF column with Gunnar
 names(storfe1)[names(storfe1)=="METBEITEOFF"]<-"TOTBEITE"
 hest1<- hest %>% select(c(knr2017,AAR,ART,utmar,TOTBEITE,TOTBAR,TOTBARDAG))
+tamrein1<-tamrein %>% select(c(knr2017,aar,tamrein,TOTBAR,TOTBARDAG))
+names(tamrein1)[names(tamrein1)=="aar"]<-"AAR"
+names(tamrein1)[names(tamrein1)=="tamrein"]<-"TOTBEITE"
+tamrein1$ART<-rep("tamrein",times=nrow(tamrein))
 
 #Combine into 1
 #all_livestock<-left_join(sau1,geit1,by=c("knr2017","AAR","utmar"),suffix=c("sau","geit"))
-all_livestock<-bind_rows(sau1,geit1,storfe1,hest1)
+all_livestock<-bind_rows(sau1,geit1,storfe1,hest1,tamrein1)
 as.factor(all_livestock$ART)
 
 #Join the biomass data to the county data
@@ -44,6 +49,7 @@ sf_livestock<-full_join(norwaykom2017,all_livestock,by=c("KOMMUNENUM"="knr2017")
 
 #Test by plotting
 plot(sf_livestock[sf_livestock$AAR==2015 & sf_livestock$ART=="sau",]["TOTBAR"],main="Sheep 2015",logz=T)
+plot(sf_livestock[sf_livestock$AAR==1907 & sf_livestock$ART=="tamrein",]["TOTBAR"],main="Semidom rein 1907",logz=T)
 
 #Aggregate to counties
 county_livestock<- sf_livestock %>% 
@@ -54,6 +60,15 @@ county_livestock$MetabolicBiomassDensity<-county_livestock$TotalMetBio/county_li
 
 ggplot()+geom_sf(data=county_livestock[county_livestock$ART=='geit',],aes(fill=MetabolicBiomassDensity),color=NA)+
   facet_wrap(vars(AAR))+scale_fill_gradient(trans='log')+ggtitle("Goat - county")
+
+
+#Check data
+ggplot(data=sf_livestock[sf_livestock$ART=="sau",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Sheep")
+ggplot(data=sf_livestock[sf_livestock$ART=="geit",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Goats")
+ggplot(data=sf_livestock[sf_livestock$ART=="hest",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Horse")
+ggplot(data=sf_livestock[sf_livestock$ART=="storf",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Cattle")
+ggplot(data=sf_livestock[sf_livestock$ART=="tamrein",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Semi-domestic reindeer")
+
 
 
 #Write county data as a shapefile

@@ -44,7 +44,7 @@ carnivores<-read.csv("Vertebrates/data/carnivore_data.csv",header=T,sep=";",dec=
 carnivores$FylkeNr<-as.factor(carnivores$County)
 carnivores$FylkeNr <-recode(carnivores$FylkeNr, "Akershus" =2  ,"Ostfold"=1, "Aust_Agder"=9,       "Buskerud"  =6,       "Finnmark"  =20,       "Hedmark"   =4,       "Hordaland" =12,       "More_og_Romsdal"=15,  "Nord_Trondelag"  =17,
                             "Nordland"  =18,       "Oppland"  =5,        "Rogaland" =11,        
-                                   "Sogn_og_Fjordane"=14, "Sor_Trondelag"=16,    "Telemark" =8,        "Troms" =19,           "Vest_Agder"   =10,    "Vestfold"=7    )
+                            "Sogn_og_Fjordane"=14, "Sor_Trondelag"=16,    "Telemark" =8,        "Troms" =19,           "Vest_Agder"   =10,    "Vestfold"=7    )
 
 
 #Select relevant years
@@ -53,7 +53,7 @@ carnivores$Year[carnivores$Species=="Wolf" & carnivores$Year=="2015/16"]<-2016
 
 carnivores_sameyrs<-carnivores[carnivores$Year %in% c( "1906-10","1916-20","1926-30","1936-40" , "1946-50","1956-60","1966-70", "1976-80","1985/86-89/90","1995/96-99/00","2005/06-09/10","2016" ),] 
 carnivores_sameyrs$YearMatch<-recode(carnivores_sameyrs$Year, "1906-10"=1907,"1916-20"=1917,"1926-30"=1929,"1936-40"=1938 , "1946-50"=1949,"1956-60"=1959,"1966-70"=1969, "1976-80"=1979,"1985/86-89/90"=1989,"1995/96-99/00"=1999,
-                                                              "2005/06-09/10"=2009, "2016" =2015)
+                                     "2005/06-09/10"=2009, "2016" =2015)
 
 
 
@@ -67,7 +67,7 @@ viltcarn
 viltlivestockcarn<-st_join(viltcarn,livestockwide,by=c("aar"=="AAR","FylkeNr"="FylkeNr"))
 viltlivestockcarn
 
-  # Calculate biomass ratios ------------------------------------------------
+# Calculate biomass ratios ------------------------------------------------
 
 
 #County level
@@ -92,6 +92,10 @@ nppyrfiles<-list.files("Vertebrates/data/NPP/Net_PP_Yearly_500m_v6/Npp",full.nam
 nppstack<-rast(nppyrfiles)
 names(nppstack)<-paste0("NPP_",2000:2021)
 nppstack[nppstack>32000]<-NA
+
+
+#Convert NPP to kg/km2 (originally kg/m2)
+nppstack<-nppstack*(1000*1000)
 
 #Vilt
 
@@ -213,6 +217,4 @@ carnannual_raster
 writeRaster(nppstack_m,"Vertebrates/data/TrophicBiomassData/NPP.tiff")
 writeRaster(viltannual_raster,"Vertebrates/data/TrophicBiomassData/Vilt.tiff")
 writeRaster(carnannual_raster,"Vertebrates/data/TrophicBiomassData/Carnivores.tiff")
-
-
 
