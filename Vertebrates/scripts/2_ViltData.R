@@ -6,12 +6,14 @@ library(geodata)
 #library(reshape2)
 library(dplyr)
 library(ggplot2)
+library(data.table)
 
 hjortevilt_metabolsk_vekt<- read_excel("Vertebrates/data/hjortevilt_metabolsk vekt 1907-2015B.xls")
 View(hjortevilt_metabolsk_vekt)
 
 #Importing older data with utmark area by kommune
-utmarkdat<-read.csv("Vertebrates/data/elg.csv",header=T)
+#utmarkdat<-read.csv("Vertebrates/data/elg.csv",header=T)
+utmarkdat<-fread("Vertebrates/data/elg.csv",header=T)
 View(utmarkdat)
 
 #Adding utmark area to each kommune
@@ -27,7 +29,7 @@ plot(norwaykom2017["NAVN"])
 plot(norwaykom2017[norwaykom2017$KOMMUNENUM==1622,]["NAVN"])
 
 #Add county numbers
-korrespond<-read.csv("Vertebrates/data/Kom2017FylkeKorrsp.csv",header=T,sep=";",encoding = "UTF-8")
+korrespond<-fread("Vertebrates/data/Kom2017FylkeKorrsp.csv",header=T,sep=";",encoding = "UTF-8")
 View(korrespond)
 
 norwaykom2017$FylkeNr<-korrespond$sourceCode[match(norwaykom2017$KOMMUNENUM,korrespond$targetCode)]
