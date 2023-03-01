@@ -15,8 +15,11 @@ library(gridExtra)
 #Herbivores
 
 vilt<-st_read("Vertebrates/data/Processed/ViltdataCounty.shp")
-names(vilt)[4:6]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
+names(vilt)
+names(vilt)[4:5]<-c("TotalMetabolicBiomass","TotalUtmarkArea")
+vilt$MBD<-vilt$TotalMetabolicBiomass/vilt$TotalUtmarkArea
 livestock<-st_read("Vertebrates/data/Processed/LivestockdataCounty.shp")
+names(livestock)
 names(livestock)[4:6]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
 
 
@@ -98,18 +101,20 @@ nppstack[nppstack>32000]<-NA
 nppstack<-nppstack*(1000*1000)
 
 #Vilt
-
 viltKom<-st_read("Vertebrates/data/Processed/ViltdataKommune.shp")
 names(viltKom)
-names(viltKom)[8:10]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
+names(viltKom)[7:9]<-c("TotalMetabolicBiomass","TotalUtmarkArea","MBD")
+
+#Fix different years issues
+viltKom$aar[viltKom$aar==1927]<-1929
 
 #Widen up to have seperate columns for each species
 #pivot not working so need to use reshape, and then send back to a sf
-df1<-viltKom %>% select(kommnnr,art,aar,MBD,geometry   )
+df1<-viltKom %>% select(kommnnr,art,aar,MBD,geometry)
 viltKomWide<-tidyr::pivot_wider(data=df1,names_from = "art", values_from = "MBD")
 viltKomWide
 #Sum up vilt species biomasses
-viltKomWide<-viltKomWide %>% mutate(Vilt= elg+hjort+roe)
+viltKomWide<-viltKomWide %>% mutate(Vilt= elg+hjort+roe+villrein)
 
 #Livestock
 livestockKom<-st_read("Vertebrates/data/Processed/LivestockdataKommune.shp")
@@ -121,9 +126,12 @@ dfL1<-livestockKom %>% select(kommunenr,ART,AAR,MBD,geometry   )
 livestockKomWide<-tidyr::pivot_wider(data=dfL1,names_from = "ART", values_from = "MBD")
 livestockKomWide
 #Sum up livestock species biomasses
-livestockKomWide<-livestockKomWide %>% mutate(Livestock= sau+geit+hest+storf)
+livestockKomWide<-livestockKomWide %>% mutate(Livestock= sau+geit+hest+storf+tamrein)
+ggplot()+geom_sf(data=livestockKomWide,aes(fill=Livestock),color=NA)+facet_wrap(vars(AAR))+scale_fill_gradient(trans='log')
+
 
 #Total biomass
+
 livestockKomWide$TotalHerbivoreBiomass<-livestockKomWide$Livestock+viltKomWide$Vilt
 ggplot()+geom_sf(data=livestockKomWide,aes(fill=TotalHerbivoreBiomass),color=NA)+
   facet_wrap(vars(AAR))+ggtitle("Herbivore MBD")+scale_fill_gradient(trans='log')
@@ -182,9 +190,9 @@ grid.arrange(g1,g2,ncol=2)
 #Rasterize all species and years
 #Vilt
 
-viltannual<-pivot_wider(viltKomWide,names_from = "aar",values_from = c("roe","elg",'hjort','Vilt'))
+viltannual<-pivot_wider(viltKomWide,names_from = "aar",values_from = c("roe","elg",'hjort','villrein','Vilt'))
 
-viltspp <- names(viltannual)[3:50]
+viltspp <- names(viltannual)[3:62]
 viltannual_raster <- lapply(viltspp, function(x) {
   rasterize(viltannual, nppstack_m[[1]],
             field = x,
@@ -196,6 +204,20 @@ viltannual_raster
 
 #Plot from this object
 ggplot()+geom_spatraster(data=transmute(viltannual_raster,tt1=Vilt_2015-Vilt_1989))
+
+#Livestock
+livestockannual<-pivot_wider(livestockKomWide,names_from = "AAR",values_from = c("sau","geit",'storf','hest','tamrein','Livestock',"TotalHerbivoreBiomass"))
+
+livestockspp <- names(livestockannual)[3:85]
+livestockannual_raster <- lapply(livestockspp, function(x) {
+  rasterize(livestockannual, nppstack_m[[1]],
+            field = x,
+            touches = TRUE
+  )
+})
+livestockannual_raster<-do.call("c",livestockannual_raster)
+livestockannual_raster
+names(livestockannual_raster)
 
 #Carnivores
 v1<-viltcarn
@@ -216,5 +238,6 @@ carnannual_raster
 #Writing Rasters - NB large files
 writeRaster(nppstack_m,"Vertebrates/data/TrophicBiomassData/NPP.tiff")
 writeRaster(viltannual_raster,"Vertebrates/data/TrophicBiomassData/Vilt.tiff")
+writeRaster(livestockannual_raster,"Vertebrates/data/TrophicBiomassData/Livestock.tiff")
 writeRaster(carnannual_raster,"Vertebrates/data/TrophicBiomassData/Carnivores.tiff")
 

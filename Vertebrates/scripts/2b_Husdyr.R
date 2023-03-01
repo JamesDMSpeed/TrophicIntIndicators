@@ -38,6 +38,8 @@ tamrein1<-tamrein %>% select(c(knr2017,aar,tamrein,TOTBAR,TOTBARDAG))
 names(tamrein1)[names(tamrein1)=="aar"]<-"AAR"
 names(tamrein1)[names(tamrein1)=="tamrein"]<-"TOTBEITE"
 tamrein1$ART<-rep("tamrein",times=nrow(tamrein))
+tamrein1$utmar<-sau1$utmar[sau1$knr2017==tamrein1$knr2017]
+tamrein1$TOTBEITE[is.na(tamrein1$TOTBEITE)]<-0
 
 #Combine into 1
 #all_livestock<-left_join(sau1,geit1,by=c("knr2017","AAR","utmar"),suffix=c("sau","geit"))
@@ -48,26 +50,29 @@ as.factor(all_livestock$ART)
 sf_livestock<-full_join(norwaykom2017,all_livestock,by=c("KOMMUNENUM"="knr2017"))
 
 #Test by plotting
-plot(sf_livestock[sf_livestock$AAR==2015 & sf_livestock$ART=="sau",]["TOTBAR"],main="Sheep 2015",logz=T)
-plot(sf_livestock[sf_livestock$AAR==1907 & sf_livestock$ART=="tamrein",]["TOTBAR"],main="Semidom rein 1907",logz=T)
+plot(sf_livestock[sf_livestock$AAR==2015 & sf_livestock$ART=="sau",]["TOTBARDAG"],main="Sheep 2015",logz=T)
+plot(sf_livestock[sf_livestock$AAR==1907 & sf_livestock$ART=="tamrein",]["TOTBARDAG"],main="Semidom rein 1907",logz=T)
+ggplot()+geom_sf(data=sf_livestock[sf_livestock$ART=="tamrein",],aes(fill=TOTBARDAG),colour=NA)+scale_fill_gradient(trans='log')+facet_wrap(vars(AAR))
 
 #Aggregate to counties
 county_livestock<- sf_livestock %>% 
   group_by(FylkeNr,ART,AAR) %>%
   summarise(TotalMetBio=sum(TOTBEITE),TotalUtmark=sum(utmar))
 
-county_livestock$MetabolicBiomassDensity<-county_livestock$TotalMetBio/county_livestock$TotalUtmark
+county_livestock$MetabolicBiomassDensity<-(county_livestock$TotalMetBio/365)/county_livestock$TotalUtmark
 
 ggplot()+geom_sf(data=county_livestock[county_livestock$ART=='geit',],aes(fill=MetabolicBiomassDensity),color=NA)+
   facet_wrap(vars(AAR))+scale_fill_gradient(trans='log')+ggtitle("Goat - county")
+ggplot()+geom_sf(data=county_livestock[county_livestock$ART=='tamrein',],aes(fill=MetabolicBiomassDensity),color=NA)+
+  facet_wrap(vars(AAR))+scale_fill_gradient()+ggtitle("SD reindeer - county")
 
 
 #Check data
-ggplot(data=sf_livestock[sf_livestock$ART=="sau",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Sheep")
-ggplot(data=sf_livestock[sf_livestock$ART=="geit",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Goats")
-ggplot(data=sf_livestock[sf_livestock$ART=="hest",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Horse")
-ggplot(data=sf_livestock[sf_livestock$ART=="storf",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Cattle")
-ggplot(data=sf_livestock[sf_livestock$ART=="tamrein",],aes(x=AAR,y=TOTBAR))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Semi-domestic reindeer")
+ggplot(data=sf_livestock[sf_livestock$ART=="sau",],aes(x=AAR,y=TOTBARDAG))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Sheep")
+ggplot(data=sf_livestock[sf_livestock$ART=="geit",],aes(x=AAR,y=TOTBARDAG))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Goats")
+ggplot(data=sf_livestock[sf_livestock$ART=="hest",],aes(x=AAR,y=TOTBARDAG))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Horse")
+ggplot(data=sf_livestock[sf_livestock$ART=="storf",],aes(x=AAR,y=TOTBARDAG))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Cattle")
+ggplot(data=sf_livestock[sf_livestock$ART=="tamrein",],aes(x=AAR,y=TOTBARDAG))+geom_line(aes(group=NAVN))+facet_wrap(vars(FylkeNr),scales='free_y')+ggtitle("Semi-domestic reindeer")
 
 
 
