@@ -18,15 +18,15 @@ library(gridExtra)
 #Import AR50 data
 #AR50 Shapefile
 
-#ar50shp<-st_read("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\0000_25833_ar50_gdb.gdb","org_ar_ar50_flate",method="ONLY_CCW")
-ar50shp<-st_read("Vertebrates/data/AR50/0000_25833_ar50_gdb.gdb","org_ar_ar50_flate")
+ar50shp<-st_read("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\0000_25833_ar50_gdb.gdb","org_ar_ar50_flate",method="ONLY_CCW")
+#ar50shp<-st_read("Vertebrates/data/AR50/0000_25833_ar50_gdb.gdb","org_ar_ar50_flate")
 ar50shp
 #ggplot()+geom_sf(data=ar50shp,aes(fill=artype))
 
 
 #AR50 type raster
-#artype50<-rast("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\AR50_artype_25_ETRS_1989_UTM_Zone_33N.tif")
-artype50<-rast("Vertebrates/AR50/AR50_artype_25_ETRS_1989_UTM_Zone_33N.tif")
+artype50<-rast("T:\\vm\\alle\\GIS_data\\Norge\\Cartography\\N50\\AR50\\AR50_artype_25_ETRS_1989_UTM_Zone_33N.tif")
+#artype50<-rast("Vertebrates/AR50/AR50_artype_25_ETRS_1989_UTM_Zone_33N.tif")
 ggplot()+geom_spatraster(data=artype50)+scale_fill_viridis_c(na.value = NA)
 
 #Reclassify
@@ -47,8 +47,8 @@ norcounty<-norcounty_shp %>%
   summarise(geometry = st_union(geometry)) 
 
 norcounty$CountyName<-norcounty$FylkeNr
-norcounty$CountyName<-c("Østfold","Akershus","Oslo","Hedmark","Oppland","Buskerud","Vestfold","Telemark","Aust-Agder","Vest-Agder","Rogaland","Hordaland","Sogn og Fjordane",
-                        "Møre og Romsdal","Sør-Trøndelag","Nord-Trøndelag","Nordland","Troms","Finnmark")
+norcounty$CountyName<-c("_stfold","Akershus","Oslo","Hedmark","Oppland","Buskerud","Vestfold","Telemark","Aust-Agder","Vest-Agder","Rogaland","Hordaland","Sogn og Fjordane",
+                        "M_re og Romsdal","S_r-Tr_ndelag","Nord-Tr_ndelag","Nordland","Troms","Finnmark")
 
 #Make spatVect 
 norcounty_vect<-vect(norcounty)
@@ -59,7 +59,7 @@ ggplot()+geom_sf(data=norcounty)
 npp<-rast("Vertebrates/data/TrophicBiomassData/NPP.tiff")
 vilt<-rast("Vertebrates/data/TrophicBiomassData/Vilt.tiff")
 carnivores<-rast("Vertebrates/data/TrophicBiomassData/Carnivores.tiff")
-
+livestock<-rast("Vertebrates/data/TrophicBiomassData/Livestock.tiff")
 
 #Functions for estimating biomass ratios
 
@@ -71,6 +71,7 @@ allyears_vect<-c(1907,1917,1929,1938,1949,1959,1969,1979,1989,1999,2009,2015)
 allyears<-list(1907,1917,1929,1938,1949,1959,1969,1979,1989,1999,2009,2015)
 names(allyears)<-paste0("Y_",allyears)
 
+#Function for estimating biomass Proportion by listing species of herbivores and carnivores
 carnivore_herbivore_biomass_function_allyrs<-function(carnivorerast,herbivorerast,carnivore_species,herbivore_species){
   carnsppyr<-lapply(allyears,function(x)paste(as.list(carnivore_species),x,sep="_"))
   herbsppyr<-lapply(allyears,function(x)paste(as.list(herbivore_species),x,sep="_"))
@@ -82,19 +83,22 @@ carnivore_herbivore_biomass_function_allyrs<-function(carnivorerast,herbivoreras
   # plot(carnsum[[1]]) 
   #plot(herbsum[[1]])
   #  print(carnsum)
-  ratio=mapply("/",lapply(herbsum,add1),lapply(carnsum,add1))
-  return(rast(ratio))
+  prop=mapply("/",carnsum,lapply(herbsum,add1))
+  return(rast(prop))
 }
+#
 
+#Function for estimating biomass ratio by listing species of herbivores and carnivores
 #Function to make indicator of herbivore to vegetation for all herbivore years
 #We use 2000 for NPP and 1999 for herbivores
 nppyrs<-c(2000,2009,2015)
 herbyrs<-c(1999,2009,2015)
 herbyrslist<-as.list(herbyrs)
 names(herbyrslist)<-paste0("Y_",herbyrs)
-vegetation_herbivore_biomass_function_allyears<-function(herbivorerast,npprast,herbivore_species){
+#This function produces a ratio of higher level: lower level
+#vegetation_herbivore_biomass_function_allyears<-function(herbivorerast,npprast,herbivore_species){
   herbsppyr<-lapply(herbyrslist,function(x)paste(as.list(herbivore_species),x,sep="_"))
-  nppyr<-npprast[[paste("NPP",vegyrs,sep="_")]]
+  nppyr<-npprast[[paste("NPP",nppyrs,sep="_")]]
   print(herbsppyr)
   print(nppyr)
   herbsum<-rast(lapply(herbsppyr,function(x) app(herbivorerast[[names(herbivorerast) %in% x]],sum)))
@@ -105,130 +109,75 @@ vegetation_herbivore_biomass_function_allyears<-function(herbivorerast,npprast,h
   names(ratio)<-names(herbyrslist)
   return(ratio)
 }
+#This function produces a proportion of lowerlevel/upper level
+vegetation_herbivore_biomass_function_allyears<-function(herbivorerast,npprast,herbivore_species){
+  herbsppyr<-lapply(herbyrslist,function(x)paste(as.list(herbivore_species),x,sep="_"))
+  nppyr<-npprast[[paste("NPP",nppyrs,sep="_")]]
+  print(herbsppyr)
+  print(nppyr)
+  herbsum<-rast(lapply(herbsppyr,function(x) app(herbivorerast[[names(herbivorerast) %in% x]],sum)))
+  print(herbsum)
+  # ratio=rast(herbsum)
+  #   ratio=mapply("/",lapply(nppyr,add1),lapply(herbsum,add1))
+  prop=(herbsum)/(nppyr+1)
+  names(prop)<-names(herbyrslist)
+  return(prop)
+}
 
 
+
+# Masking layers to different landcovers ----------------------------------
 #Habitat specific polygons
 
-#Forest
-forest_ar50<-ar50shp[ar50shp$artype==30,]
+#Combine vilt and livestock
+allherbivores<-c(vilt,livestock)
 
 #Mask the trophic biomass layers to the habitat
 npp1<-mask(npp,norcounty)#First mask out non-norway cells
+#Resample the ar50 to the npp cells 
+artype50_FR<-project(resample(artype50_F,npp1,method='near'),npp1)
+artype50_FR_vert<-project(resample(artype50_F,allherbivores,method='near'),allherbivores)
 
-forest_npp<-mask(npp1,forest_ar50)#Then mask all non-forest cells
+compareGeom(artype50_FR,allherbivores,ext=T,res=T,rowcol=T)
+
+#Then mask all non-forest cells
+forest_npp<-mask(npp1,artype50_FR,maskvalues=30,inverse=T)
 ggplot()+geom_spatraster(data=forest_npp$NPP_2000)+ggtitle("Forest")
-forest_vilt<-mask(vilt,forest_ar50)
-forest_carnivore<-mask(carnivores,forest_ar50)
+forest_allherbivores<-mask(allherbivores,artype50_FR_vert,maskvalues=30,inverse=T)
+plot(allherbivores$elg_2015)
+plot(forest_allherbivores$elg_2015)
+forest_carnivore<-mask(carnivores,artype50_FR,maskvalues=30,inverse=T)
+plot(forest_carnivore$bear_1907)
 
 plot(2000:2021,global(forest_npp,fun=mean,na.rm=T)$mean,type='b',main="NPP in forest")
 
 #Open areas (both alpine and lowland in AR50)
-openarea_ar50<-ar50shp[ar50shp$artype==50,]
-
-openhab_npp<-mask(npp1,openarea_ar50)
+openhab_npp<-mask(npp1,artype50_FR,maskvalues=50,inverse=T)
 ggplot()+geom_spatraster(data=openhab_npp$NPP_2000)+ggtitle("Open")
-openhab_vilt<-mask(vilt,openarea_ar50)
-openhab_carnivore<-mask(carnivores,openarea_ar50)
+openhab_allherbivores<-mask(allherbivores,artype50_FR,maskvalues=50,inverse=T)
+openhab_carnivore<-mask(carnivores,artype50_FR,maskvalues=50,inverse=T)
 
 #Innmarkbeite
-innmark_ar50<-ar50shp[ar50shp$artype==20,]
-innmark_npp<-mask(npp1,innmark_ar50)
+innmark_npp<-mask(npp1,artype50_FR,maskvalues=20,inverse=T)
 ggplot()+geom_spatraster(data=innmark_npp$NPP_2000)+ggtitle("Agri")
-innmark_vilt<-mask(vilt,innmark_ar50)
-innmark_carnivore<-mask(carnivores,innmark_ar50)
-
-
-# Old stuff - delete ------------------------------------------------------
-
-
-#
-
-# #Forest
-# #1907. 
-# #Herbivores: Roe deer, red deer, moose
-# #Carnivores: Wolf, Bear, Lynx
-# forest1907_C_H<-(forest_carnivore$lynx_1907+forest_carnivore$bear_1907+forest_carnivore$wolf_1907)/(forest_vilt$roe_1907+forest_vilt$hjort_1907+forest_vilt$elg_1907)
-# forest2015_V_H<-(forest_npp$NPP_2015+1)/(forest_vilt$roe_2015+forest_vilt$hjort_2015+forest_vilt$elg_2015+1)
-# forest2015_H_V<-(forest_vilt$roe_2015+forest_vilt$hjort_2015+forest_vilt$elg_2015+1)/((forest_npp$NPP_2015/1000000000)+1)
-# 
-# 
-# ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
-#   geom_spatraster(data=forest1907_C_H)+scale_fill_gradient(na.value=NA)
-# 
-# ggplot()+geom_spatraster(data=forest2015_V_H)+scale_fill_gradient(na.value=NA,breaks=c(0,10^7.5,10^8,10^8.5,10^9,10^10))
-# ggplot()+geom_spatraster(data=forest2015_H_V)+scale_fill_gradient(na.value=NA,breaks=c(0,0.001,0.1,0.2,0.5,1,10,100),trans='log')
-# 
-# 
-# #Function to make indicators on basis of lists of species for a single year
-# carnivore_herbivore_biomass_function<-function(carnivorerast,herbivorerast,year,carnivore_species,herbivore_species){
-#   carnsppyr<-paste(carnivore_species,year,sep="_")
-#   herbsppyr<-paste(herbivore_species,year,sep="_")
-#   print(carnsppyr)
-#   print(herbsppyr)
-#   carnsum<-sum(carnivorerast[[names(carnivorerast) %in% carnsppyr]])
-#   herbsum<-sum(herbivorerast[[names(herbivorerast) %in% herbsppyr]])
-#   #plot(carnsum) 
-#   carnsum
-#   herbsum
-#   ratio=(herbsum+1)/(carnsum+1)
-#   return(ratio)
-#   }
-# 
-# HC_forest_2015<-carnivore_herbivore_biomass_function(carnivorerast=forest_carnivore,herbivorerast=forest_vilt,
-#                                      year=2015,
-#                                      carnivore_species=c('lynx','wolf','bear'),
-#                                      herbivore_species=c('elg','roe','hjort'))
-# 
-# HC_forest_1917<-carnivore_herbivore_biomass_function(carnivorerast=forest_carnivore,herbivorerast=forest_vilt,
-#                                                      year=1917,
-#                                                      carnivore_species=c('lynx','wolf','bear'),
-#                                                      herbivore_species=c('elg','roe','hjort'))
-# 
-# HC_forest<-c(HC_forest_1917,HC_forest_2015)
-# names(HC_forest)<-c('1907','2015')
-# ggplot()+geom_sf(data=norcounty,fill='white',lwd=0.1)+
-#   geom_spatraster(data=HC_forest)+facet_wrap(~lyr)+
-#   scale_fill_gradient(na.value=NA)
-
-
-# #Function to make indicator of herbivore to vegetation
-# vegetation_herbivore_biomass_function<-function(herbivorerast,npprast,year,herbivore_species){
-#   herbsppyr<-paste(herbivore_species,year,sep="_")
-#   nppyr<-npprast[[paste("NPP",year,sep="_")]]
-#   print(herbsppyr)
-#   herbsum<-sum(herbivorerast[[names(herbivorerast) %in% herbsppyr]])
-#   print(herbsum)
-#   ratio=(nppyr+1)/(herbsum+1)
-# }
-#   
-# VH_forest_2015<-vegetation_herbivore_biomass_function(herbivorerast = forest_vilt,
-#                                                       npprast=forest_npp,
-#                                                       year=2015,
-#                                                       herbivore_species = c('elg','roe','hjort'))
-# ggplot()+geom_sf(data=norcounty,fill='white',lwd=0.1)+
-#   geom_spatraster(data=VH_forest_2015)+
-#   scale_fill_gradient(na.value=NA,breaks=c(0,10000000,20000000,30000000,10000000000))
-# 
-# 
-
-
-
+innmark_allherbivores<-mask(allherbivores,artype50_FR,maskvalues=20,inverse=T)
+innmark_carnivore<-mask(carnivores,artype50_FR,maskvalues=50,inverse=T)
+ggplot()+geom_spatraster(data=innmark_carnivore$lynx_2015)
 
 # Producing indicators - forest ----------------------------------------------------
-
-
 #Forest herbivores and vegetation
-forest_herbivores_veg<-vegetation_herbivore_biomass_function_allyears(herbivorerast=forest_vilt,
+forest_herbivores_veg<-
+  vegetation_herbivore_biomass_function_allyears(herbivorerast=forest_allherbivores,
                                                                     npprast=forest_npp,
-                                                                    herbivore_species=c("elg","hjort","roe"))
+                                                                    herbivore_species=c("elg","hjort","roe","storf"))
 
 forest_herbivores_veg
 ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
   geom_spatraster(data=forest_herbivores_veg)+facet_grid(~lyr)+
   scale_fill_distiller(palette = "YlOrRd",
                       na.value=NA,
-                     # breaks=as.numeric(apply(global(forest_herbivores_veg,quantile,na.rm=T),2,max)),
-                      limits=c(0,max(global(forest_herbivores_veg,quantile,probs=0.95,na.rm=T))))
+                     limits=c(0,max(global(forest_herbivores_veg,quantile,probs=0.95,na.rm=T))))+ggtitle("Forest_NPP/Herbivores")
+writeRaster(forest_herbivores_veg,"Vertebrates/data/Processed/forest_herbivores_veg.tiff")
 
 #Simple plot
 plot(c(1999,2009,2015),global(forest_herbivores_veg,mean,na.rm=T)$mean,type='b')
@@ -239,23 +188,30 @@ forest_herb_veg_county$ID<-norcounty_vect$FylkeNr
 forest_herb_veg_county$CountyName<-norcounty_vect$CountyName
 forest_herb_veg_countyDF<-gather(forest_herb_veg_county,key=Year,Y_1999,Y_2009,Y_2015,value=Ratio,-CountyName)
 forest_herb_veg_countyDF$YearN<-as.numeric(substr(forest_herb_veg_countyDF$Year,3,7))
-ggplot(data=forest_herb_veg_countyDF,aes(x=YearN,y=Ratio,group=as.factor(ID),color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=forest_herb_veg_countyDF$CountyName)+
-  ggtitle("Forest Ratio of NPP:Herbivore biomass")
+ggplot(data=forest_herb_veg_countyDF,aes(x=YearN,y=Ratio,color=CountyName))+geom_line()+scale_color_discrete(labels=forest_herb_veg_countyDF$CountyName)+
+  ggtitle("Forest Ratio of NPP:Herbivore biomass")+theme_bw()+
+  geom_text(data=forest_herb_veg_countyDF[forest_herb_veg_countyDF$YearN==2015,],aes(label = CountyName, x = 2015, y = Ratio), hjust = -.1) 
+  
 
 
 #Herbivores and carnivores
 forest_carnivores_herbivores<-carnivore_herbivore_biomass_function_allyrs(carnivorerast = forest_carnivore,
-                                                herbivorerast = forest_vilt,
+                                                herbivorerast = forest_allherbivores,
                                                 carnivore_species = c('wolf','lynx','bear'),
                                                 herbivore_species = c('elg','roe','hjort'))
 forest_carnivores_herbivores
+writeRaster(forest_carnivores_herbivores,"Vertebrates/data/Processed/forest_carnivores_herbivores.tiff")
 
-ggplot()+geom_spatraster(data=forest_carnivores_herbivores)+facet_wrap(~lyr)+scale_fill_gradient(na.value=NA)+
-  ggtitle("Forest Trophic biomass ratio Herbivores:Carnivores")+theme_bw()
+ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
+  geom_spatraster(data=forest_carnivores_herbivores)+facet_wrap(~lyr)+
+  theme_bw()+ggtitle("Forest_Carnivores/Herbivores")+
+  scale_fill_distiller(palette = "YlOrRd",
+                       na.value=NA,
+                       limits=c(0,max(global(forest_herbivores_veg,quantile,probs=0.95,na.rm=T))))
 
 yearlymeans<-global(forest_carnivores_herbivores,fun="mean",na.rm=T)
 yearlyquantiles<-global(forest_carnivores_herbivores,fun=quantile,na.rm=T)
-plot(allyears_vect,yearlymedian$mean,type='b')
+plot(allyears_vect,yearlymeans$mean,type='b')
 lines(allyears_vect,yearlyquantiles$X50.,type="b",col=2)
 
 
@@ -264,19 +220,16 @@ forest_carn_herb_county$ID<-norcounty_vect$FylkeNr#Replace IDs with Fylke Nrs
 forest_carn_herb_county$CountyName<-norcounty_vect$CountyName#Replace IDs with Fylke Nrs
 forest_carn_herb_countyDF<-gather(forest_carn_herb_county,key="Year",value="Ratio",-ID,-CountyName)
 forest_carn_herb_countyDF$YearN<-as.numeric(substr(forest_carn_herb_countyDF$Year,3,7))
-ggplot(data=forest_carn_herb_countyDF,aes(x=YearN,y=Ratio,color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=forest_carn_herb_countyDF$CountyName)+
-  ggtitle("Forest Ratio of Herbivore:Carnivore biomass")
-
+ggplot(data=forest_carn_herb_countyDF,aes(x=YearN,y=Ratio,color=CountyName))+geom_line()+scale_color_discrete()+
+  ggtitle("Forest Ratio of Carnivore/Herbivore biomass")+theme_bw()+
+  geom_text(data=forest_carn_herb_countyDF[forest_carn_herb_countyDF$YearN==2015,],aes(label = CountyName, x = 2015, y = Ratio), hjust = -.1) 
 
 
 # #Indicators - open habitat (alpine and lowland) -------------------------
-
-
-
 #Open herbivores and vegetation
-open_herbivores_veg<-vegetation_herbivore_biomass_function_allyears(herbivorerast=openhab_vilt,
+open_herbivores_veg<-vegetation_herbivore_biomass_function_allyears(herbivorerast=openhab_allherbivores,
                                                                       npprast=openhab_npp,
-                                                                      herbivore_species=c("hjort","roe"))
+                                                                      herbivore_species=c("hjort",'roe',"sau","geit",'storf'))
 
 ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
   geom_spatraster(data=open_herbivores_veg)+facet_wrap(~lyr)+scale_fill_gradient(na.value = NA)+
@@ -292,10 +245,10 @@ ggplot(data=open_herb_veg_countyDF,aes(x=YearN,y=Ratio,group=as.factor(ID),color
   ggtitle("open Ratio of NPP:Herbivore biomass")
 
 
-open_carnivores_herbivores<-carnivore_herbivore_biomass_function_allyrs(carnivorerast = forest_carnivore,
-                                                                       herbivorerast = forest_vilt,
+open_carnivores_herbivores<-carnivore_herbivore_biomass_function_allyrs(carnivorerast = openhab_carnivore,
+                                                                       herbivorerast = openhab_allherbivores,
                                                                        carnivore_species = c('wolf','lynx'),
-                                                                       herbivore_species = c('roe','hjort'))
+                                                                       herbivore_species = c('hjort','roe','sau','geit','hest','storf'))
 
 ggplot()+geom_sf(data=norcounty,fill="white",lwd=0.1)+
   geom_spatraster(data=open_carnivores_herbivores)+facet_wrap(~lyr)+scale_fill_gradient(na.value=NA)+
@@ -308,3 +261,125 @@ open_carn_herb_countyDF<-gather(open_carn_herb_county,key="Year",value="Ratio",-
 open_carn_herb_countyDF$YearN<-as.numeric(substr(open_carn_herb_countyDF$Year,3,7))
 ggplot(data=open_carn_herb_countyDF,aes(x=YearN,y=Ratio,color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=open_carn_herb_countyDF$CountyName)+
   ggtitle("Open habitats - Ratio of Herbivore:Carnivore biomass")
+
+
+
+
+
+# Scaling of indicators ---------------------------------------------------
+
+#Indicator colors
+low <- "red"
+high <- "green"
+
+#Linear, greater than 0.05 is good condition
+opt_herbnpp<-0.03
+opt_carnherb<-0.03
+scaled_forest_herbivore_npp<-forest_herbivores_veg/opt_herbnpp
+scaled_forest_herbivore_npp[scaled_forest_herbivore_npp>1]<-1
+
+scaled_forest_carnivore_herbivore<-forest_carnivores_herbivores/opt_carnherb
+scaled_forest_carnivore_herbivore[scaled_forest_carnivore_herbivore>1]<-1
+
+
+ggplot()+geom_sf(data=norcounty_shp,fill="white",lwd=0.1)+
+  geom_spatraster(data=scaled_forest_herbivore_npp)+
+  scale_fill_gradient(low = low, high = high,na.value = NA)+
+  facet_wrap(~lyr)+theme_bw()+
+  ggtitle("Herbivores/NPP - Linear scaled to 3%")
+
+ggplot()+geom_sf(data=norcounty_shp,fill="white",lwd=0.1)+
+  geom_spatraster(data=scaled_forest_carnivore_herbivore)+
+  scale_fill_gradient(low = low, high = high,na.value = NA)+
+  facet_wrap(~lyr)+theme_bw()+
+  ggtitle("Carnivores/Herbivores - Linear scaled to 3%")
+
+#COunty summary
+scaled_forest_herbivore_npp_county<-terra::extract(scaled_forest_herbivore_npp,norcounty_vect,mean,na.rm=T)
+scaled_forest_herbivore_npp_county$ID<-norcounty_vect$FylkeNr#Replace IDs with Fylke Nrs
+scaled_forest_herbivore_npp_county$CountyName<-norcounty_vect$CountyName#Replace IDs with Fylke Nrs
+scaled_forest_herbivore_npp_countyDF<-gather(scaled_forest_herbivore_npp_county,key="Year",value="Index",-ID,-CountyName)
+scaled_forest_herbivore_npp_countyDF$YearN<-as.numeric(substr(scaled_forest_herbivore_npp_countyDF$Year,3,7))
+ggplot(data=scaled_forest_herbivore_npp_countyDF,aes(x=YearN,y=Index,color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=scaled_forest_herbivore_npp_countyDF$CountyName)+
+  ggtitle("Scaled_Forest - Herbivores/NPP")+theme_bw()+xlim(c(1998,2020))+ylim(c(0,1))+theme(legend.position='none')+
+  geom_text(data=scaled_forest_herbivore_npp_countyDF[scaled_forest_herbivore_npp_countyDF$YearN==2015,],aes(label = CountyName, x = 2015, y = Index), hjust = -.1) 
+
+scaled_forest_carnivore_herbivore_county<-terra::extract(scaled_forest_carnivore_herbivore,norcounty_vect,mean,na.rm=T)
+scaled_forest_carnivore_herbivore_county$ID<-norcounty_vect$FylkeNr#Replace IDs with Fylke Nrs
+scaled_forest_carnivore_herbivore_county$CountyName<-norcounty_vect$CountyName#Replace IDs with Fylke Nrs
+scaled_forest_carnivore_herbivore_countyDF<-gather(scaled_forest_carnivore_herbivore_county,key="Year",value="Index",-ID,-CountyName)
+scaled_forest_carnivore_herbivore_countyDF$YearN<-as.numeric(substr(scaled_forest_carnivore_herbivore_countyDF$Year,3,7))
+ggplot(data=scaled_forest_carnivore_herbivore_countyDF,aes(x=YearN,y=Index,color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=scaled_forest_carnivore_herbivore_countyDF$CountyName)+
+  ggtitle("Scaled_Forest - Carnivore/Herbivores")+theme_bw()+xlim(c(1905,2025))+theme(legend.position='none')+
+  geom_text(data=scaled_forest_carnivore_herbivore_countyDF[scaled_forest_carnivore_herbivore_countyDF$YearN==2015,],aes(label = CountyName, x = 2015, y = Index), hjust = -.1) 
+
+
+
+#Exponential-convex, 5% is optimum. 
+exp_scaled_forest_herbivore_npp<-scaled_forest_herbivore_npp^0.5
+
+ggplot()+geom_sf(data=norcounty_shp,fill="white",lwd=0.1)+
+  geom_spatraster(data=exp_scaled_forest_herbivore_npp$Y_2015)+
+  scale_fill_gradient(low = low, high = high,na.value = NA)+
+  ggtitle("Exponential indicator - Forest Herbivores/NPP")
+
+#Sigmoidal
+sig_scaled_forest_herbivore_npp<- 100.68*(1-exp(-5*(scaled_forest_herbivore_npp)^2.5))/100
+ggplot()+geom_sf(data=norcounty_shp,fill="white",lwd=0.1)+
+  geom_spatraster(data=sig_scaled_forest_herbivore_npp$Y_2015)+
+  scale_fill_gradient(low = low, high = high,na.value = NA)+
+  ggtitle("Sigmoid indicator - Forest Herbivores/NPP")
+
+#Two-sided - 0.05 optimum
+twoside_scaled_forest_herbivore_npp <- ifel(#Note ifel() is the terra implementation of ifelse()
+  forest_herbivores_veg< opt_herbnpp,
+  (forest_herbivores_veg)/opt_herbnpp,
+  (forest_herbivores_veg-opt_herbnpp)/(1-opt_herbnpp)*(-1)
+)
+
+# truncating
+twoside_scaled_forest_herbivore_npp[twoside_scaled_forest_herbivore_npp<(-1)] <- 0
+twoside_scaled_forest_herbivore_npp[twoside_scaled_forest_herbivore_npp>1] <- 1
+hist(twoside_scaled_forest_herbivore_npp)
+
+ggplot()+geom_sf(data=norcounty_shp,fill="white",lwd=0.1)+
+  geom_spatraster(data=twoside_scaled_forest_herbivore_npp$Y_2015)+
+  scale_fill_gradient(low = low, high = high,na.value = NA)+
+  ggtitle("Twoside indicator - Forest Herbivores/NPP")
+
+ggplot()+geom_sf(data=norcounty_shp,fill="white",lwd=0.1)+
+  geom_spatraster(data=twoside_scaled_forest_herbivore_npp)+
+  scale_fill_gradient(low = low, high = high,na.value = NA)+
+  ggtitle("Twoside indicator - Forest Herbivores/NPP")+
+  facet_wrap(~lyr)
+
+twoside_scaled_forest_herbivore_npp_county<-extract(exp_scaled_forest_herbivore_npp,norcounty_vect,mean,na.rm=T)
+twoside_scaled_forest_herbivore_npp_county$ID<-norcounty_vect$FylkeNr#Replace IDs with Fylke Nrs
+twoside_scaled_forest_herbivore_npp_county$CountyName<-norcounty_vect$CountyName#Replace IDs with Fylke Nrs
+twoside_scaled_forest_herbivore_npp_countyDF<-gather(twoside_scaled_forest_herbivore_npp_county,key="Year",value="Index",-ID,-CountyName)
+twoside_scaled_forest_herbivore_npp_countyDF$YearN<-as.numeric(substr(twoside_scaled_forest_herbivore_npp_countyDF$Year,3,7))
+ggplot(data=twoside_scaled_forest_herbivore_npp_countyDF,aes(x=YearN,y=Index,color=as.factor(ID)))+geom_line()+scale_color_discrete(labels=twoside_scaled_forest_herbivore_npp_countyDF$CountyName)+
+  ggtitle("Twoside Scaled_Forest - Herbivores/NPP")+theme_bw()
+
+
+
+twoside_scaled_forest_carnivore_herbivore <- ifel(#Note ifel() is the terra implementation of ifelse()
+  forest_carnivores_herbivores< opt_carnherb,
+  (forest_carnivores_herbivores)/opt_carnherb,
+  (forest_carnivores_herbivores-opt_carnherb)/(1-opt_carnherb)*(-1)+1
+)
+
+# truncating
+twoside_scaled_forest_carnivore_herbivore[twoside_scaled_forest_carnivore_herbivore<0] <- 0
+twoside_scaled_forest_carnivore_herbivore[twoside_scaled_forest_carnivore_herbivore>1] <- 1
+
+ggplot()+geom_sf(data=norcounty_shp,fill="white",lwd=0.1)+
+  geom_spatraster(data=twoside_scaled_forest_carnivore_herbivore$Y_1907)+
+  scale_fill_gradient(low = low, high = high,na.value = NA)+
+  ggtitle("Twoside indicator - Forest Carnivore/Herbivore 1907")
+
+ggplot()+geom_sf(data=norcounty_shp,fill="white",lwd=0.1)+
+  geom_spatraster(data=twoside_scaled_forest_carnivore_herbivore)+
+  scale_fill_gradient(low = low, high = high,na.value = NA)+
+  ggtitle("Twoside indicator - Forest Carnivore/Herbivore")+
+  facet_wrap(~lyr)
